@@ -1,0 +1,563 @@
+DeSY AI Video Detection System - Execution and Training Guide
+================================================
+
+================================================
+Environment Setup
+================================================
+
+1. System Requirements
+- Python 3.8+
+- CUDA 11.0+ (recommended for GPU acceleration)
+- Memory: At least 8GB RAM
+- VRAM: At least 4GB VRAM (when using GPU)
+
+2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+Main Dependencies:
+- torch>=1.9.0
+- torchvision>=0.10.0
+- opencv-python>=4.5.0
+- numpy>=1.21.0
+- scikit-learn>=1.0.0
+- matplotlib>=3.3.0
+- pandas>=1.3.0
+
+3. Dataset Preparation
+Ensure the following datasets are available:
+- UCF101 dataset (real videos)
+- video_bias_dataset (AI-generated videos)
+- Or use existing train_fusion_data.json
+
+================================================
+Project Execution Guide
+================================================
+
+1. Quick Start - Using Pre-trained Models
+----------------------------------------
+
+1.1 Single Video Detection
+```python
+from fusion_classifier import VideoAIDetector
+
+# Create detector
+detector = VideoAIDetector(threshold=0.4238)
+
+# Detect video
+result = detector.detect(
+    video_path="path/to/your/video.mp4",
+    audio=None,  # Optional audio data
+    text=""      # Optional text description
+)
+
+print(f"Detection Result: {'AI Generated' if result['is_ai_generated'] else 'Real Video'}")
+print(f"Confidence: {result['confidence']:.4f}")
+print(f"Feature Scores: {result['feature_scores']}")
+```
+
+1.2 Batch Video Detection
+```python
+import os
+from fusion_classifier import VideoAIDetector
+
+detector = VideoAIDetector()
+
+video_dir = "path/to/video/directory"
+results = []
+
+for filename in os.listdir(video_dir):
+    if filename.endswith(('.mp4', '.avi', '.mov')):
+        video_path = os.path.join(video_dir, filename)
+        result = detector.detect(video_path, None, "")
+        results.append({
+            'filename': filename,
+            'result': result
+        })
+
+# Output results
+for item in results:
+    print(f"{item['filename']}: {item['result']['is_ai_generated']}")
+```
+
+2. Model Testing
+----------------------------------------
+
+2.1 Test Individual Models
+```python
+# Test low-level vision model
+from low_level_vision import LowLevelVisionModel
+
+model = LowLevelVisionModel()
+result = model.process_video("test_video.mp4")
+print(f"Low-level detection result: {result}")
+
+# Test mid-level temporal model
+from mid_level_temporal import MidLevelTemporalModel
+import torch
+
+model = MidLevelTemporalModel(input_dim=2048)
+# Need to extract features first
+features = torch.randn(1, 16, 2048)  # Example features
+output = model(features)
+
+# Test high-level semantic model
+from high_level_semantic import HighLevelSemanticModel
+
+model = HighLevelSemanticModel()
+features = torch.randn(1, 16, 2048)  # Example features
+output = model(features)
+```
+
+2.2 Test Fusion Model
+```python
+from fusion_classifier import FusionClassifier
+
+model = FusionClassifier()
+# Simulate outputs from three levels
+low_score = torch.tensor(0.3)
+mid_score = torch.tensor(0.4)
+high_score = torch.tensor(0.5)
+
+final_score, feature_scores = model.forward(
+    "test_video.mp4", 
+    torch.randn(1, 16000),  # Example audio
+    "test description"      # Example text
+)
+```
+
+================================================
+Training Guide
+================================================
+
+1. Complete Training Process
+----------------------------------------
+
+1.1 Prepare Training Data
+Ensure train_fusion_data.json file exists and format is correct:
+```json
+[
+  {
+    "video_path": "path/to/real_video.mp4",
+    "label": 0
+  },
+  {
+    "video_path": "path/to/ai_video.mp4", 
+    "label": 1
+  }
+]
+```
+
+1.2 Start Training
+```bash
+# Train all models (recommended)
+python train.py
+
+# Or use custom parameters
+python train.py --batch_size 4 --epochs 50 --lr 0.0005
+```
+
+1.3 Training Parameter Description
+- --data_dir: Data directory path (default: train_fusion_data.json)
+- --batch_size: Batch size (default: 2, memory optimization)
+- --epochs: Number of training epochs (default: 30)
+- --lr: Learning rate (default: 0.001)
+- --save_dir: Model save directory (default: best_models_pth)
+- --num_workers: Data loader worker processes (default: 2)
+
+2. Stage-wise Training
+----------------------------------------
+
+2.1 Train Low-level Vision Model
+```python
+from train import train_low_level_vision
+from data_loader import create_dataloader
+from low_level_vision import LowLevelVisionModel
+
+# Create data loader
+train_loader, val_loader = create_dataloader("train_fusion_data.json")
+
+# Create model
+model = LowLevelVisionModel()
+
+# Train
+train_low_level_vision(model, train_loader, val_loader, args)
+```
+
+2.2 Train Mid-level Temporal Model
+```python
+from train import train_mid_level_temporal
+from mid_level_temporal import MidLevelTemporalModel
+
+model = MidLevelTemporalModel(input_dim=2048)
+train_mid_level_temporal(model, train_loader, val_loader, args)
+```
+
+2.3 Train High-level Semantic Model
+```python
+from train import train_high_level_semantic
+from high_level_semantic import HighLevelSemanticModel
+
+model = HighLevelSemanticModel()
+train_high_level_semantic(model, train_loader, val_loader, args)
+```
+
+2.4 Train Fusion Layer
+```bash
+python train_fusion.py
+```
+
+3. Custom Training
+----------------------------------------
+
+3.1 Modify Training Parameters
+```python
+# Modify get_default_args function in train.py
+def get_default_args():
+    return {
+        'data_dir': 'your_custom_data.json',
+        'batch_size': 8,  # Increase batch size
+        'epochs': 100,    # Increase training epochs
+        'lr': 0.0001,     # Decrease learning rate
+        'num_workers': 4, # Increase worker processes
+    }
+```
+
+3.2 Add Data Augmentation
+```python
+# Modify transform in data_loader.py
+from torchvision import transforms
+
+transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(p=0.5),  # Random horizontal flip
+    transforms.RandomRotation(10),           # Random rotation
+    transforms.ColorJitter(0.1, 0.1, 0.1),  # Color jitter
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225])
+])
+```
+
+3.3 Custom Loss Function
+```python
+# Add custom loss function in train.py
+import torch.nn as nn
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        
+    def forward(self, inputs, targets):
+        ce_loss = nn.CrossEntropyLoss()(inputs, targets)
+        pt = torch.exp(-ce_loss)
+        focal_loss = self.alpha * (1-pt)**self.gamma * ce_loss
+        return focal_loss
+
+# Use in training function
+criterion = FocalLoss(alpha=1, gamma=2)
+```
+
+================================================
+Performance Optimization Guide
+================================================
+
+1. Memory Optimization
+----------------------------------------
+
+1.1 Reduce Batch Size
+```python
+# Set in train.py
+args.batch_size = 1  # Minimum batch size
+```
+
+1.2 Use Gradient Accumulation
+```python
+# Already implemented in train_low_level_vision function
+accumulation_steps = 4  # Accumulate 4 steps before update
+loss = loss / accumulation_steps
+```
+
+1.3 Clear Memory
+```python
+# Add in training loop
+if i % 10 == 0:
+    torch.cuda.empty_cache()
+```
+
+2. Training Acceleration
+----------------------------------------
+
+2.1 Use Mixed Precision Training
+```python
+from torch.cuda.amp import autocast, GradScaler
+
+scaler = GradScaler()
+
+with autocast():
+    outputs = model(frames)
+    loss = criterion(outputs, labels)
+
+scaler.scale(loss).backward()
+scaler.step(optimizer)
+scaler.update()
+```
+
+2.2 Data Loading Optimization
+```python
+# Increase worker processes
+train_loader = DataLoader(
+    dataset,
+    batch_size=batch_size,
+    num_workers=8,  # Increase worker processes
+    pin_memory=True,  # Pin memory
+    persistent_workers=True  # Persistent workers
+)
+```
+
+3. Model Optimization
+----------------------------------------
+
+3.1 Learning Rate Scheduling
+```python
+# Use cosine annealing scheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
+```
+
+3.2 Early Stopping Mechanism
+```python
+class EarlyStopping:
+    def __init__(self, patience=7, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        
+    def __call__(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            
+        return self.counter >= self.patience
+```
+
+================================================
+Debugging and Troubleshooting
+================================================
+
+1. Common Issues
+----------------------------------------
+
+1.1 Insufficient Memory
+- Solution: Reduce batch_size, use gradient accumulation
+- Check: Use nvidia-smi to check memory usage
+
+1.2 Data Loading Errors
+- Check: Video file paths are correct
+- Check: Video files are not corrupted
+- Solution: Use cv2.VideoCapture to test video files
+
+1.3 Model Weight Loading Failure
+- Check: Weight files exist
+- Check: Weight files are not corrupted
+- Solution: Retrain or use default weights
+
+1.4 Training Not Converging
+- Check: Learning rate is not too high
+- Check: Data labels are correct
+- Solution: Lower learning rate, check data quality
+
+2. Debugging Tools
+----------------------------------------
+
+2.1 Use Debug Scripts
+```bash
+# Test model imports
+python test_import.py
+
+# Test detection functionality
+python test_detection.py test_video.mp4
+
+# Analyze fusion weights
+python analyze_fusion_weights.py
+```
+
+2.2 Logging
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Add logs in training loop
+logger.info(f"Epoch {epoch}: Loss={loss:.4f}, Acc={acc:.4f}")
+```
+
+================================================
+Deployment Guide
+================================================
+
+1. Model Deployment
+----------------------------------------
+
+1.1 Save Complete Model
+```python
+# Save entire model (including structure)
+torch.save(model, 'complete_model.pth')
+
+# Load complete model
+model = torch.load('complete_model.pth')
+```
+
+1.2 Model Quantization
+```python
+# Dynamic quantization
+quantized_model = torch.quantization.quantize_dynamic(
+    model, {torch.nn.Linear}, dtype=torch.qint8
+)
+```
+
+1.3 Model Conversion
+```python
+# Convert to ONNX format
+torch.onnx.export(
+    model,
+    dummy_input,
+    "model.onnx",
+    export_params=True,
+    opset_version=11
+)
+```
+
+2. Production Environment Deployment
+----------------------------------------
+
+2.1 Create API Service
+```python
+from flask import Flask, request, jsonify
+from fusion_classifier import VideoAIDetector
+
+app = Flask(__name__)
+detector = VideoAIDetector()
+
+@app.route('/detect', methods=['POST'])
+def detect_video():
+    video_file = request.files['video']
+    result = detector.detect(video_file.filename, None, "")
+    return jsonify(result)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+2.2 Batch Processing Service
+```python
+import multiprocessing as mp
+from fusion_classifier import VideoAIDetector
+
+def process_video(video_path):
+    detector = VideoAIDetector()
+    return detector.detect(video_path, None, "")
+
+# Use multi-processing
+with mp.Pool(processes=4) as pool:
+    results = pool.map(process_video, video_paths)
+```
+
+================================================
+Performance Evaluation
+================================================
+
+1. Evaluation Metrics
+----------------------------------------
+
+1.1 Calculate Accuracy, Precision, Recall, F1 Score
+```python
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+accuracy = accuracy_score(y_true, y_pred)
+precision = precision_score(y_true, y_pred)
+recall = recall_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
+
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
+```
+
+1.2 Plot ROC Curve
+```python
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+
+fpr, tpr, _ = roc_curve(y_true, y_scores)
+roc_auc = auc(fpr, tpr)
+
+plt.plot(fpr, tpr, label=f'ROC curve (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend()
+plt.show()
+```
+
+2. Model Comparison
+----------------------------------------
+
+2.1 Compare Different Thresholds
+```python
+thresholds = [0.3, 0.4, 0.5, 0.6, 0.7]
+results = []
+
+for threshold in thresholds:
+    detector = VideoAIDetector(threshold=threshold)
+    # Evaluate on test set
+    accuracy = evaluate_model(detector, test_data)
+    results.append({'threshold': threshold, 'accuracy': accuracy})
+
+# Select best threshold
+best_threshold = max(results, key=lambda x: x['accuracy'])['threshold']
+```
+
+================================================
+Best Practice Recommendations
+================================================
+
+1. Data Preparation
+- Ensure dataset balance (equal number of real and AI-generated videos)
+- Use multiple sources of AI-generated videos to improve generalization
+- Regularly update datasets to adapt to new AI generation technologies
+
+2. Model Training
+- Use validation set to monitor overfitting
+- Implement early stopping mechanism to avoid overtraining
+- Use data augmentation to improve model robustness
+
+3. Performance Optimization
+- Adjust batch size according to hardware configuration
+- Use mixed precision training to accelerate training
+- Regularly clear memory to avoid memory leaks
+
+4. Model Deployment
+- Use model quantization in production to reduce memory usage
+- Implement model version management
+- Monitor model performance and retrain regularly
+
+5. Continuous Improvement
+- Collect user feedback to improve models
+- Track new AI generation technologies and update models
+- Regularly evaluate model performance on new data
+
+================================================

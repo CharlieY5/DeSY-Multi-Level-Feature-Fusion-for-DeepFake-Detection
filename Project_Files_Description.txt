@@ -1,0 +1,237 @@
+DeSY AI Video Detection System - Core Files Detailed Description
+================================================
+
+Project Overview:
+This is an AI-generated video detection system based on three-level feature fusion, adopting a progressive detection architecture of low-level vision, mid-level temporal, and high-level semantic.
+
+================================================
+Core Files Detailed Description
+================================================
+
+1. Model Definition Files (Root Directory)
+----------------------------------------
+
+1.1 fusion_classifier.py
+- Function: Main fusion classifier file, integrating detection results from three levels
+- Core Classes:
+  * FusionClassifier: Fusion classifier, containing three sub-models and fusion layer
+  * VideoAIDetector: Video AI detector, providing unified detection interface
+- Key Features:
+  * First-layer fusion weights: Learnable 3-dimensional weight parameters
+  * Second-layer fusion network: 3-layer fully connected network, outputting final confidence
+  * Supports threshold adjustment (default 0.4238, optimal F1 score threshold based on ROC curve analysis)
+- Weight file: best_models_pth/fusion_classifier_best.pth
+
+1.2 low_level_vision.py
+- Function: Low-level visual feature detection module
+- Core Classes:
+  * VideoPreprocessor: Video preprocessing, extracting key frames
+  * ResNet50FeatureExtractor: ResNet-50 feature extractor
+  * LowLevelVisionModel: Main low-level vision model class
+- Detection Targets:
+  * Blurred edge detection
+  * Unnatural texture recognition
+  * Skin tone distribution anomalies
+- Network Structure: ResNet-50 + custom classifier (2048->512->2)
+- Weight file: best_models_pth/best_low_level_vision.pth
+
+1.3 mid_level_temporal.py
+- Function: Mid-level temporal consistency modeling module
+- Core Classes:
+  * PositionalEncoding: Positional encoding
+  * TransformerTemporalModel: Transformer temporal model
+  * MambaBlock: Mamba state space model block
+  * MambaTemporalModel: Mamba temporal model
+  * MidLevelTemporalModel: Main mid-level temporal model class
+- Detection Targets:
+  * Action discontinuity detection
+  * Cross-frame forgery recognition
+  * Physiological anomaly detection
+  * Multi-frame jitter detection
+- Network Structure: Transformer + Mamba dual-branch, weighted fusion
+- Weight file: best_models_pth/mid_level_temporal_best.pth
+
+1.4 high_level_semantic.py
+- Function: High-level semantic cross-modal detection module
+- Core Classes:
+  * XCLIPModel: XCLIP multi-modal feature extraction
+  * AVHubertModel: Audio-visual Hubert model
+  * CLIPTextImageModel: CLIP text-image model
+  * HighLevelSemanticModel: Main high-level semantic model class
+- Detection Targets:
+  * Audio-visual desynchronization detection
+  * Audio forgery recognition
+  * Semantic inconsistency detection
+- Network Structure: Three sub-models parallel + feature fusion layer
+- Weight file: best_models_pth/high_level_semantic_best.pth
+
+2. Model Definition Files (models directory)
+----------------------------------------
+
+2.1 models/low_level_vision.py
+- Function: Same as root directory file, used for modular imports
+- Usage: Imported and used in training scripts like train.py
+
+2.2 models/mid_level_temporal.py
+- Function: Same as root directory file, used for modular imports
+- Usage: Imported and used in training scripts like train.py
+
+2.3 models/high_level_semantic.py
+- Function: Same as root directory file, used for modular imports
+- Usage: Imported and used in training scripts like train.py
+
+3. Training Related Files
+----------------------------------------
+
+3.1 train.py
+- Function: Main training script, training three-level models
+- Training Process:
+  1. Train low-level vision model (LowLevelVisionModel)
+  2. Train mid-level temporal model (MidLevelTemporalModel)
+  3. Train high-level semantic model (HighLevelSemanticModel)
+- Features:
+  * Supports gradient accumulation, optimizing memory usage
+  * Automatically checks existing weight files, skips already trained models
+  * Supports CUDA optimization
+  * Uses ReduceLROnPlateau learning rate scheduler
+- Default Parameters:
+  * batch_size: 2 (memory optimization)
+  * epochs: 30
+  * learning_rate: 0.001
+  * Data source: train_fusion_data.json
+
+3.2 train_fusion.py
+- Function: Fusion layer training script
+- Training Process:
+  1. Load three pre-trained sub-models
+  2. Freeze sub-model parameters
+  3. Only train fusion layer parameters
+- Features:
+  * Uses FusionDataset dataset
+  * Supports feature extraction and fusion layer training
+  * Saves fusion layer weights to fusion_classifier_best.pth
+
+3.3 data_loader.py
+- Function: Data loader, processing video datasets
+- Core Classes:
+  * UCF101Downloader: UCF101 dataset download and processing
+  * VideoDataset: Video dataset class
+  * FusionJsonDataset: Fusion training dataset class
+- Features:
+  * Supports UCF101 and custom JSON datasets
+  * Automatically creates train/test set splits
+  * Supports data augmentation and preprocessing
+  * Compatible with multiple video formats
+
+4. Data Files
+----------------------------------------
+
+4.1 train_fusion_data.json
+- Function: Fusion training dataset
+- Format: JSON array, each element contains video_path and label
+- Labels: 0=real video, 1=AI-generated video
+- Data Sources:
+  * Real videos: UCF101 dataset
+  * AI-generated videos: video_bias_dataset
+
+5. Weight Files (best_models_pth directory)
+----------------------------------------
+
+5.1 best_low_level_vision.pth
+- Function: Best weights for low-level vision model
+- Size: Approximately 100MB
+- Usage: Video frame-level visual feature detection
+
+5.2 mid_level_temporal_best.pth
+- Function: Best weights for mid-level temporal model
+- Size: Approximately 50MB
+- Usage: Video temporal consistency detection
+
+5.3 mid_level_temporal_latest.pth
+- Function: Latest weights for mid-level temporal model
+- Usage: Latest checkpoint during training process
+
+5.4 high_level_semantic_best.pth
+- Function: Best weights for high-level semantic model
+- Size: Approximately 30MB
+- Usage: Multi-modal semantic consistency detection
+
+5.5 fusion_classifier_best.pth
+- Function: Best weights for fusion classifier
+- Size: Approximately 5MB
+- Usage: Fusion decision for three-level features
+
+5.6 fusion_classifier_reset.pth
+- Function: Reset fusion classifier weights
+- Usage: Debugging and retraining fusion layer
+
+6. Configuration Files
+----------------------------------------
+
+6.1 requirements.txt
+- Function: Project dependency package list
+- Main Dependencies:
+  * torch>=1.9.0
+  * torchvision>=0.10.0
+  * opencv-python>=4.5.0
+  * numpy>=1.21.0
+  * scikit-learn>=1.0.0
+  * matplotlib>=3.3.0
+  * pandas>=1.3.0
+  * flask>=2.0.0 (Web application related)
+
+7. Auxiliary Files
+----------------------------------------
+
+7.1 force_fix_fonts.py
+- Function: Force fix matplotlib Chinese font display issues
+- Usage: Font configuration for chart generation
+
+================================================
+Project Architecture Description
+================================================
+
+The system adopts a three-level progressive detection architecture:
+
+1. Low-Level Vision Layer (Low-Level Vision)
+   - Based on ResNet-50 feature extraction
+   - Detects pixel-level and texture-level forgery traces
+   - Output: Visual feature confidence
+
+2. Mid-Level Temporal Layer (Mid-Level Temporal)
+   - Transformer + Mamba dual-branch architecture
+   - Detects temporal consistency and motion continuity
+   - Output: Temporal feature confidence
+
+3. High-Level Semantic Layer (High-Level Semantic)
+   - XCLIP + AVHubert + CLIP multi-modal fusion
+   - Detects cross-modal semantic consistency
+   - Output: Semantic feature confidence
+
+4. Fusion Decision Layer (Fusion Layer)
+   - Self-weighted logistic regression
+   - Fuses confidence from three levels
+   - Output: Final detection result
+
+================================================
+Data Flow Description
+================================================
+
+Input Video -> Key Frame Extraction -> Parallel Feature Extraction -> Fusion Decision -> Detection Result
+
+1. Video Preprocessing:
+   - Extract 16 key frames
+   - Resize to 224x224
+   - Normalization processing
+
+2. Feature Extraction:
+   - Low-level: ResNet-50 feature extraction
+   - Mid-level: Transformer+Mamba temporal modeling
+   - High-level: Multi-modal semantic features
+
+3. Fusion Decision:
+   - First layer: Learnable weight fusion
+   - Second layer: Neural network fusion
+   - Threshold judgment: Default 0.4238
+
+================================================
